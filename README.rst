@@ -50,7 +50,7 @@ Checkout out http://docs.saltstack.com/en/latest/topics/development/conventions/
       - /srv/salt-formulas/yamlscript-formula
 
 
-Now yamscript modules need to be synced using one of the following:
+Now yamlscript modules need to be synced using one of the following:
 
 .. code-block:: bash
 
