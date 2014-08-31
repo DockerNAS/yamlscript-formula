@@ -37,24 +37,26 @@ Yamlscript contains a renderer and utils that must be moved to the correct
 location in salt base and then synced before use.
 
 Here is an example of how to set things up assuming the yamlscript-formuala
-is located at `/srv/salt-formulas/yamlscript-formula` and the salt base is
-located at `/srv/salt`:
+is located at ``/srv/salt-formulas/yamlscript-formula`` and the salt base is
+located at ``/srv/salt``:
 
 Checkout out http://docs.saltstack.com/en/latest/topics/development/conventions/formulas.html to find out how to install formulas.
 
-```
-file_roots:
-  base:
-    - /srv/salt
-    - /srv/salt-formulas/yamlscript-formula
-```
+.. code-block:: yaml
+
+  file_roots:
+    base:
+      - /srv/salt
+      - /srv/salt-formulas/yamlscript-formula
+
 
 Now yamscript modules need to be synced using one of the following:
 
-```
-salt-call --local saltutil.sync_all
-salt-call --local state.highstate
-salt '*' saltutil.sync_all
-salt '*' state.highstate
-```
+.. code-block:: bash
+
+  salt-call --local saltutil.sync_all
+  salt-call --local state.highstate
+  salt '*' saltutil.sync_all
+  salt '*' state.highstate
+  
 
