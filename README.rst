@@ -40,12 +40,13 @@ Here is an example of how to set things up assuming the yamlscript-formuala
 is located at `/srv/salt-formulas/yamlscript-formula` and the salt base is
 located at `/srv/salt`:
 
+Checkout out http://docs.saltstack.com/en/latest/topics/development/conventions/formulas.html to find out how to install formulas.
+
 ```
-mkdir -p /srv/salt/_renderers/
-mkdir -p /srv/salt/_utils/
-cp /srv/salt-formulas/yamlscript-formula/src/yamlscript.py /srv/salt/_renderers/
-cp /srv/salt-formulas/yamlscript-formula/src/voluptuous.py /srv/salt/_utils/
-cp /srv/salt-formulas/yamlscript-formula/src/yamlscript_utils.py /srv/salt/_utils/
+file_roots:
+  base:
+    - /srv/salt
+    - /srv/salt-formulas/yamlscript-formula
 ```
 
 Now yamscript modules need to be synced using one of the following:
