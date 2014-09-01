@@ -19,6 +19,7 @@ local:
     - makedirs: false
     - mode: 644
     - name: shadow
+    - netmask: 255.255.255.255
     - not_real_key1:
         building:
         - Campus 1

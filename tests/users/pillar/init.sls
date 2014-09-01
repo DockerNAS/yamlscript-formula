@@ -179,3 +179,5 @@ tester_renamed:
 #absent_groups:
 #  - carl
 #  - frank
+
+my_ip_range: 10.0.0.10

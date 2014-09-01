@@ -27,6 +27,10 @@ $python: |
     g = "G"
     lister = [1, 2, 3, 4, 5, '$a']
 
+    # Test importing salt utils while using a pillar for value
+    import salt.utils.ipaddr
+    netmask = str(salt.utils.ipaddr.IPNetwork(pillar('my_ip_range')).netmask)
+
 $if test_value:
 #$if False:
   tester:
@@ -40,6 +44,7 @@ $if test_value:
     - not_real_key1:    {'wing': 'left', 'floor': 2, 'building': '$building'}
     - not_real_key2:    [$a, [$b, {'c': [$c, $d, $e, [$f, $g]]}]]
     - not_real_key3:    $f
+    - netmask:          $netmask
     - if:               True
     - custom:           $mel_user.user.name
     - contents_pillar:  null
