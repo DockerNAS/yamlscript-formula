@@ -118,12 +118,14 @@ class Data(object):
     _states = {}
     _state_list = []
     _locals = {}
+    _script_data = {}
 
     def __init__(self, script_data):
-        self._state_list = copy.deepcopy(__context__['state_list'])
-        if not self._states:
-            for state_id, state_name in self._state_list:
-                self.add(script_data, state_id, state_name)
+        self._state_list.extend(copy.deepcopy(__context__['state_list']))
+        self._script_data = script_data
+
+        for state_id, state_name in self._state_list:
+            self.add(self._script_data, state_id, state_name)
 
     def add(self, data, state_id, state_name, other_data=None):
         '''
@@ -192,6 +194,7 @@ class Data(object):
         :param dict other_data: Provided from template via python call
         :return: data value of [state_id][state_name]
         '''
+        pillar_data = {}
         if not other_data:
             other_data = {}
 
@@ -207,7 +210,14 @@ class Data(object):
             return None
 
         data = data[state_id][state_name]
-        pillar_data = data.get('__pillar_data__', {})
+
+        # Only merge pillar_data if state_id does not already exist in
+        # self._states so we don't clobber something thats been updated
+        # already
+        if state_id not in self._states:
+            try:
+                pillar_data = data.get('__pillar_data__', {})
+            except AttributeError: pass
 
         # Allow other_data to honour aliases
         if other_data:
@@ -225,7 +235,7 @@ class Data(object):
 
         if create:
             # Don't merge any keys not in __argspec__ OR state file.  Prevents
-            # keys ketting merged that share same pillar 'name space' when using
+            # keys getting merged that share same pillar 'name space' when using
             # short aliases
             for key in pillar_data.keys():
                 if key not in data['__argspec__'] and key not in data.keys():
@@ -331,7 +341,24 @@ class Render(object):
     data = None
     index = {}
 
-    def __init__(self, script_data, _globals):
+    # yamlscript private keys
+    # private keys ae ones that should not get modified
+    yamlscript_private_keys = [
+        '__yamlscript__',
+        '__fun__',
+        '__argspec__',
+        '__pillar__',
+        '__alias__',
+        '__pillar_data__',
+    ]
+
+    # yamlscript keys
+    yamlscript_keys = [
+        '__id__',
+    ]
+    yamlscript_keys.extend(yamlscript_private_keys)
+
+    def __init__(self, script_data, sls_type, _globals):
         '''
         Renders the provided de-serialized yamlscript data recursively until
         all the required salt data states have been generated.
@@ -344,6 +371,8 @@ class Render(object):
         :param dict _globals: yamlscript and pyobjects globals used by this
         class as well as python execution and evaluation
         '''
+        self.sls_type = sls_type
+
         # Set gloabl namespace so we have access to pyobjects state
         # function and convenience methods
         self._globals.update(_globals)
@@ -360,7 +389,7 @@ class Render(object):
         self._locals['self'] = self
 
         # Start parsing the script_data to generate salt_data state objects
-        self.parse(copy.deepcopy(script_data))
+        self.parse(self.data._script_data)
 
     def parse(self, data):
         '''
@@ -519,8 +548,22 @@ class Render(object):
             '''
             try:
                 # pylint: disable=W0631
-                if isinstance(value, str) and value.startswith('$$'):
-                    value = new_value = value[1:]  # strip $
+
+                # Normally you escape a wanted dollar sign $ with $$, but
+                # sometimes a string starts with two $$, so we need to
+                # esacpe a double $$ with \
+                if isinstance(value, str) and value.startswith('\$$'):
+                    # Leave as is if its a pillar; cause state will strip it
+                    if self.sls_type == 'pillar':
+                        new_value = value
+                    else:
+                        new_value = value = value[1:]  # strip \
+                elif isinstance(value, str) and value.startswith('$$'):
+                    # Leave as is if its a pillar; cause state will strip it
+                    if self.sls_type == 'pillar':
+                        new_value = value
+                    else:
+                        new_value = value = value[1:]  # strip $
                 elif isinstance(value, str) and value.startswith('$'):
                     value = value[1:]
                     new_value = self.evaluate(value)
@@ -543,9 +586,16 @@ class Render(object):
             except (NameError, TypeError, SyntaxError, AttributeError):
                 pass
 
-        for key, value in state.items():
-            new_value = replace(value)
-            state[key] = new_value
+        if isinstance(state, dict):
+            for key, value in state.items():
+                if key in self.yamlscript_private_keys:
+                    state[key] = value
+                else:
+                    new_value = replace(value)
+                    state[key] = new_value
+        else:
+            state = replace(state)
+
         return state
 
     def _forloop_reset(self):
@@ -604,14 +654,24 @@ class Render(object):
         # Lets see if any values need to be eval'd
         try:
             state = self.evaluate_state_items(state)
-            state_id = state.get('__id__', state_id)
+
+            # Only states can change their id
+            if self.sls_type == 'state':
+                state_id = state.get('__id__', state_id)
             data.setdefault(state_id, {}).setdefault(state_name, {})
             data[state_id][state_name] = state
             self.data.add(data, state_id, state_name)
 
-            # Create the real final state
-            state_object = self.add_smart_state(data, state_id, state_name)
-            return state_object
+            # Pillar handling
+            if self.sls_type == 'pillar':
+                # We can overwite state_id everytime since
+                # self.data._states[state_id] will always have the most upto
+                # data values
+                __pillar__[state_id] = self.data._states[state_id].get('pillar', {})
+            else:
+                # Create the real final state
+                state_object = self.add_smart_state(data, state_id, state_name)
+                return state_object
         except KeyError as error:
             # Most likely a state was removed with inline python
             msg = 'Can not access state values [{0}][{1}]: KeyError: {2}'.format(state_id, state_name, str(error))
@@ -654,17 +714,7 @@ class Render(object):
         if 'require' in defaults.keys() and defaults['require'] is None:
             defaults['require'] = []
 
-        # Pop yamlscript keys
-        yamlscript_keys = [
-            '__yamlscript__',
-            '__id__',
-            '__fun__',
-            '__argspec__',
-            '__pillar__',
-            '__alias__',
-            '__pillar_data__',
-        ]
-        for k in yamlscript_keys:
+        for k in self.yamlscript_keys:
             defaults.pop(k, None)
 
         # Create final state
@@ -684,9 +734,16 @@ def render(template, saltenv='base', sls='', **kwargs):
     yamlscript_utils.Cache.set(sls, sls)
 
     # Set some global builtins in yamlscript_utils
-    yamlscript_utils.__opts__ = __opts__
-    yamlscript_utils.__states__ = __states__
-    yamlscript_utils.__pillar__ = __pillar__
+    yamlscript_utils.__opts__ = globals().get('__opts__', {})
+    yamlscript_utils.__states__ = globals().get('__states__', {})
+    yamlscript_utils.__pillar__ = globals().get('__pillar__', {})
+
+    # Detect if we are running a pillar or state
+    if globals().get('__states__', None) is None:
+        sls_type = 'pillar'
+    else:
+        sls_type = 'state'
+    kwargs['sls_type'] = sls_type
 
     # Convert yaml to ordered dictionary
     deserialize = yamlscript_utils.Deserialize(
@@ -701,9 +758,29 @@ def render(template, saltenv='base', sls='', **kwargs):
     )
     yamlscript_utils.Cache.set(sls, deserialize)
 
-    # Call pyobjects to build globals and provide functions to create states
-    pyobjects = kwargs['renderers']['pyobjects']
-    _globals = pyobjects(template, saltenv, sls, salt_data=False, **kwargs)
+    # Set _globals; used for evaluation of code
+    if sls_type == 'state':
+        # Call pyobjects to build globals and provide functions to create states
+        pyobjects = kwargs['renderers']['pyobjects']
+        _globals = pyobjects(template, saltenv, sls, salt_data=False, **kwargs)
+    else:
+        # add some convenience methods to the global scope as well as the "dunder"
+        # format of all of the salt objects
+        try:
+            _globals = {
+                # salt, pillar & grains all provide shortcuts or object interfaces
+                'pillar': __salt__['pillar.get'],
+                'grains': __salt__['grains.get'],
+                'mine': __salt__['mine.get'],
+                'config': __salt__['config.get'],
+
+                # the "dunder" formats are still available for direct use
+                '__salt__': __salt__,
+                '__pillar__': __pillar__,
+                '__grains__': __grains__
+            }
+        except NameError:
+            raise
 
     # Additional globals
     _globals['__context__'] = dict(state_list=deserialize.state_list)
@@ -712,7 +789,12 @@ def render(template, saltenv='base', sls='', **kwargs):
     _globals.pop('salt', None)
 
     # Render the script data that was de-serialized into salt_data
-    Render(script_data, _globals=_globals)
+    Render(script_data, sls_type, _globals=_globals)
+
+    # If its a pillar, return it now
+    if sls_type == 'pillar':
+        return __pillar__
+
     salt_data = Registry.salt_data()
 
     # Run tests if state file provided a test file location.  Tests will

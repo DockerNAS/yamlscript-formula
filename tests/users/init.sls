@@ -47,6 +47,7 @@ $if test_value:
     - netmask:          $netmask
     - if:               True
     - custom:           $mel_user.user.name
+    - password:         null
     - contents_pillar:  null
     - makedirs:         true
     - mode:             644
@@ -71,3 +72,6 @@ $else:
 $python: |
     test_value = False
 
+user2:
+    user.present:
+    - home: $pillar('HOME_PATH')

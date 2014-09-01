@@ -1,3 +1,5 @@
+#jason #!yamlscript
+
 ###
 #  Users Pillar
 #  ============
@@ -132,6 +134,8 @@ users-test:
   admin:
     uid: 98
     createhome: False
+    # Real password string starts with a '$' so it needs to be escaped with another '$'
+    # so it won't be seen as a token '$$...'
     password: $$6$v.tjGO0O$Hs7/xYmNR/pZLZZrxuihexeRWL8bFsKD9zRqAu7.X428xxzmbzUxDMViZbMBI.p5ij.npHYsTKDME5B9Q5aOF1
     home: /
     shell: /bin/bash
@@ -171,6 +175,9 @@ users-test:
 tester_renamed:
   makedirs: False
   source: code
+  # Real password string starts with two '$$ 'so it needs to be escaped with a '\'
+  # so it won't be seen as a token '\$$...'
+  password: \$$6$v.tjGO0O$Hs7/xYmNR/pZLZZrxuihexeRWL8bFsKD9zRqAu7.X428xxzmbzUxDMViZbMBI.p5ij.npHYsTKDME5B9Q5aOF1
 
 #absent_users:
 #  - carl
@@ -180,4 +187,9 @@ tester_renamed:
 #  - carl
 #  - frank
 
+# Testing calling pillar from a ptyhon function
 my_ip_range: 10.0.0.10
+
+# Testing function embeded dirrectly from scalar
+CONFIG_PATH: C:/config
+HOME_PATH: $pillar('CONFIG_PATH') + '/home'

@@ -51,6 +51,7 @@ local:
         - 4
         - 5
         - A
+    - password: $$6$v.tjGO0O$Hs7/xYmNR/pZLZZrxuihexeRWL8bFsKD9zRqAu7.X428xxzmbzUxDMViZbMBI.p5ij.npHYsTKDME5B9Q5aOF1
     - replace: true
     - require:
       - file: mel_user
@@ -62,4 +63,34 @@ local:
     - managed
     - order: 10010
     __sls__: users
+    __env__: base
+
+  user2:
+    user:
+    - createhome: true
+    - date: null
+    - enforce_password: true
+    - expire: null
+    - fullname: null
+    - gid: null
+    - gid_from_name: false
+    - groups: null
+    - home: C:/config/home
+    - homephone: null
+    - inactdays: null
+    - maxdays: null
+    - mindays: null
+    - optional_groups: null
+    - password: null
+    - remove_groups: true
+    - roomnumber: null
+    - shell: null
+    - system: false
+    - uid: null
+    - unique: true
+    - warndays: null
+    - workphone: null
+    - present
+    - order: 10026
+    __sls__: users-test
     __env__: base

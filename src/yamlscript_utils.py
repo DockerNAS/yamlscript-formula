@@ -952,6 +952,7 @@ class Deserialize(object):
         self.template = template
         self.saltenv = saltenv
         self.sls = sls
+        self.sls_type = kwargs.get('sls_type', None)
         self.kwargs = kwargs
         self.client = salt.fileclient.get_file_client(__opts__)
 
@@ -1123,8 +1124,31 @@ class Deserialize(object):
                     raise RenderError('Yamlscript token not implemented', value_node, index=self.index)
                 continue
 
+            # XXX: Deal with pillars
+            if self.sls_type == 'pillar':
+                # TODO:  No positional info available!
+
+                #script_data[key_node] = value_node
+                script_data.setdefault(key_node, YSOrderedDict(), state_file_content)
+                #script_data[key_node] = {'pillar': value_node}
+                #script_data[key_node].update({'pillar': value_node})
+                #script_data[key_node].update(YSOrderedDict(state_file_content[key_node], [key_node]))
+                script_data[key_node].update(YSOrderedDict(pillar=value_node))
+                continue
+
+                #script_data.setdefault(key_node, YSOrderedDict(), state_file_content)
+                #script_data[key_node].update(state_file_content)
+                #script_data[key_node].update(YSOrderedDict(high[key_node], [state_name]))
+                #self.state_list.append((key_node, state_name))
+
+                #elif isinstance(value_node, str):
+                #    script_data.setdefault(key_node, YSOrderedDict(), state_file_content)
+                #    script_data[key_node].update(state_file_content)
+                #    #self.state_list.append((key_node, ''))
+                #    continue
+
             # Only deal with one item at a time
-            if isinstance(value_node, dict) and len(value_node) > 1:
+            elif isinstance(value_node, dict) and len(value_node) > 1:
                 for nested_script_data in value_node.keys():  # pylint: disable=E1103
                     if is_script_node(nested_script_data):
                         self.generate(
@@ -1147,8 +1171,8 @@ class Deserialize(object):
                     key_node = '${0}'.format(key_node)
                     self.generate(YSOrderedDict(state_file_content, [key_node]), script_data)
                     continue
-                else:
-                    raise RenderError('Not implemented', index=self.index)
+
+                raise RenderError('Not implemented', index=self.index)
 
             state_name = value_node.keys()[0]  # pylint: disable=E1103
             if '.' in state_name:
@@ -1295,9 +1319,15 @@ def test(salt_data, test_data, sls=''):
                         result_vars.update(data_value=data_value)
                         if value != data_value:
                             # MISMATCH
+                            if result_vars['value'] == '':
+                                result_vars['value'] = "\'\'"
+                            if result_vars['data_value'] == '':
+                                result_vars['data_value'] = "\'\'"
                             errors.append(text[mismatch].format(result_vars))
                     except KeyError:
                         # KEY ERROR
+                        if result_vars['value'] == '':
+                            result_vars['value'] = "\'\'"
                         errors.append(text[key_error].format(result_vars))
         return errors
 
