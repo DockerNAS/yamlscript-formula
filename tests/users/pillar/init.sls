@@ -1,4 +1,4 @@
-#jason #!yamlscript
+#!yamlscript
 
 ###
 #  Users Pillar
