@@ -487,6 +487,85 @@ class Render(object):
                     # Create the real final state
                     self.add(data, key_node, name)
 
+    def process_sls_imports(self, code):
+        '''
+        Process our sls imports
+
+        We allow pyobjects users to use a special form of the import statement
+        so that they may bring in objects from other files. While we do this we
+        disable the registry since all we're looking for here is python objects,
+        not salt state data.
+        '''
+        # XXX Place at top
+        import re
+        import StringIO
+        import salt.fileclient
+
+        client = salt.fileclient.get_file_client(__opts__)
+        template = StringIO.StringIO(code)
+
+        # Our import regexes
+        FROM_RE = r'^\s*from\s+(salt:\/\/.*)\s+import (.*)$'
+        IMPORT_RE = r'^\s*import\s+(salt:\/\/.*)$'
+
+        template_data = []
+        Registry.enabled = False
+        for line in template.readlines():
+            line = line.rstrip('\r\n')
+            matched = False
+            for RE in (IMPORT_RE, FROM_RE):
+                matches = re.match(RE, line)
+                if not matches:
+                    continue
+
+                import_file = matches.group(1).strip()
+                try:
+                    imports = matches.group(2).split(',')
+                except IndexError:
+                    # if we don't have a third group in the matches object it means
+                    # that we're importing everything
+                    imports = None
+
+                state_file = client.cache_file(import_file, self._globals['saltenv'])
+                if not state_file:
+                    raise ImportError("Could not find the file {0!r}".format(import_file))
+
+                with open(state_file) as f:
+                    state_contents = f.read()
+
+                state_locals = {}
+                if sys.version_info[0] > 2:
+                    # in py3+ exec is a function
+                    exec(state_contents, self._globals, state_locals)
+                else:
+                    # prior to that it is a statement
+                    exec state_contents in self._globals, state_locals
+
+                if imports is None:
+                    imports = state_locals.keys()
+
+                for name in imports:
+                    name = name.strip()
+                    if name not in state_locals:
+                        raise ImportError("{0!r} was not found in {1!r}".format(
+                            name,
+                            import_file
+                        ))
+                    self._globals[name] = state_locals[name]
+
+                matched = True
+                break
+
+            if not matched:
+                template_data.append(line)
+
+        final_template = "\n".join(template_data)
+
+        # re-enable the registry
+        Registry.enabled = True
+
+        return final_template
+
     def execute(self, code):
         '''
         Executes python code within yamlscript template using locals that
@@ -498,6 +577,10 @@ class Render(object):
         renderer will mark the actual line of code that has an error within the
         template code
         '''
+
+        # Process any sls imports first
+        code = self.process_sls_imports(code)
+
         try:
             if sys.version_info[0] > 2:
                 # in py3+ exec is a function
@@ -784,6 +867,7 @@ def render(template, saltenv='base', sls='', **kwargs):
 
     # Additional globals
     _globals['__context__'] = dict(state_list=deserialize.state_list)
+    _globals['saltenv'] = saltenv
 
     # Can't use pyobject global 'salt' since we need to import salt classes
     _globals.pop('salt', None)

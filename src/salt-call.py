@@ -1,6 +1,6 @@
 __author__ = 'root'
 
-# 
+#
 # This module is only used with WingIDE debugger for testing code within
 # The debugging environment
 #
@@ -10,7 +10,7 @@ from subprocess import call
 
 from salt.scripts import salt_call
 
-SYNC = False
+SYNC = True
 
 if __name__ == '__main__':
     argv = sys.argv
@@ -28,11 +28,12 @@ if __name__ == '__main__':
 
     # Sync renderers first
     if SYNC:
-        sys.argv = \
-        ['/srv/salt-formulas/yamlscript-formula/src/salt-call.py',
-         '--local',
-         'saltutil.sync_all']
-        salt_call()
-        sys.argv = argv
+        #sys.argv = \
+        #['/srv/salt-formulas/yamlscript-formula/src/salt-call.py',
+        # '--local',
+        # 'saltutil.sync_all']
+        #salt_call()
+        #sys.argv = argv
+        call(["salt", "*", "saltutil.sync_all"])
 
     salt_call()
