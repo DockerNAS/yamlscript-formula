@@ -75,3 +75,40 @@ $python: |
 user2:
     user.present:
     - home: $pillar('HOME_PATH')
+
+# ==============================================================================
+#!yamlscript
+$test_file:
+  - salt://users-test/tests.ems_service
+
+# EMS_SERVICE Senerio 1
+$for ems_service in pillar('EMS_SERVICE_LIST', {}):
+  $python: |
+      primaryport = pillar('EMS_%s_PRIMARYPORT' % ems_service)
+      secondaryport = pillar('EMS_%s_SECONDARYPORT' % ems_service)
+      primaryserver = pillar('EMS_%s_PRIMARYSERVER' % ems_service)
+      secondaryserver = pillar('EMS_%s_SECONDARYSERVER' % ems_service)
+
+      if pillar('EMS_SERVICE_TYPE') == 'primary':
+        ems_listenurl = "tcp://%s:%s" % (primaryserver, primaryport)
+        ems_ftactive = "tcp://%s:%s" % (secondaryserver, secondaryport)
+        ems_tcp_port = primaryport
+      elif pillar('EMS_SERVICE_TYPE') == 'secondary':
+        ems_listenurl = "tcp://%s" % secondaryport
+        ems_ftactive = "tcp://%s:%s" % (primaryserver, primaryport)
+        ems_tcp_port = secondaryport
+
+      ems_service_config.file.text = "%s-%s-%s-%s" % (ems_service,ems_listenurl, ems_ftactive, ems_tcp_port)
+
+  ems_service_config:
+    file.append:
+     - __id__:           $'{0}_config'.format(ems_service)
+     - name:             C:/abc.txt
+     - text:             null
+
+$for ems_type, values in pillar('EMS_SERVICE', {}).items():
+  ems_service_config_new:
+    file.append:
+     - __id__: $'{0}_config_new'.format(ems_type)
+     - name: C:/abc.txt
+     - text: $"{0}-tcp://{1[PRIMARYSERVER]}:{1[PRIMARYPORT]}-tcp://{1[SECONDARYSERVER]}:{1[SECONDARYPORT]}-{1[PRIMARYPORT]}".format(ems_type, values)
