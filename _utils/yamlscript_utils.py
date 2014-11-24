@@ -1127,25 +1127,9 @@ class Deserialize(object):
             # XXX: Deal with pillars
             if self.sls_type == 'pillar':
                 # TODO:  No positional info available!
-
-                #script_data[key_node] = value_node
                 script_data.setdefault(key_node, YSOrderedDict(), state_file_content)
-                #script_data[key_node] = {'pillar': value_node}
-                #script_data[key_node].update({'pillar': value_node})
-                #script_data[key_node].update(YSOrderedDict(state_file_content[key_node], [key_node]))
                 script_data[key_node].update(YSOrderedDict(pillar=value_node))
                 continue
-
-                #script_data.setdefault(key_node, YSOrderedDict(), state_file_content)
-                #script_data[key_node].update(state_file_content)
-                #script_data[key_node].update(YSOrderedDict(high[key_node], [state_name]))
-                #self.state_list.append((key_node, state_name))
-
-                #elif isinstance(value_node, str):
-                #    script_data.setdefault(key_node, YSOrderedDict(), state_file_content)
-                #    script_data[key_node].update(state_file_content)
-                #    #self.state_list.append((key_node, ''))
-                #    continue
 
             # Only deal with one item at a time
             elif isinstance(value_node, dict) and len(value_node) > 1:
@@ -1172,7 +1156,11 @@ class Deserialize(object):
                     self.generate(YSOrderedDict(state_file_content, [key_node]), script_data)
                     continue
 
-                raise RenderError('Not implemented', index=self.index)
+                # XXX
+                # Allow empty states like cmd.run
+                value_node = YSOrderedDict({value_node: []})
+                state_file_content[key_node] = value_node
+                # raise RenderError('Not implemented', index=self.index)
 
             state_name = value_node.keys()[0]  # pylint: disable=E1103
             if '.' in state_name:
