@@ -17,6 +17,30 @@
 # IMPORTANT NOTE.  Be sure we are using the rootfs version, not gitfs or paths will be incorrect!
 # Set breakpoint on /var/cache/salt/minion/extmods/...
 
-ln -sf /var/cache/salt/minion/extmods/renderers/yamlscript.pyc .
-ln -sf /var/cache/salt/minion/extmods/utils/yamlscript_utils.pyc .
-ln -sf /var/cache/salt/minion/extmods/utils/voluptuous.pyc .
+#ln -sf /var/cache/salt/minion/extmods/renderers/yamlscript.pyc .
+#ln -sf /var/cache/salt/minion/extmods/utils/yamlscript_utils.pyc .
+#ln -sf /var/cache/salt/minion/extmods/utils/voluptuous.pyc .
+
+SRC="$(readlink -m .)"
+EXTMODS="/var/cache/salt/minion/extmods"
+
+rm -f *.pyc
+touch yamlscript.pyc
+touch yamlscript_utils.pyc
+touch voluptuous.pyc
+
+pushd "${EXTMODS}/renderers"
+    rm -f yamscript.py?
+    ln -sf "${SRC}/yamlscript.py" .
+    ln -sf "${SRC}/yamlscript.pyc" .
+popd
+
+pushd "${EXTMODS}/utils"
+    rm -f yamscript.py?
+    ln -sf "${SRC}/yamlscript_utils.py" .
+    ln -sf "${SRC}/yamlscript_utils.pyc" .
+
+    rm -f yamscript.py?
+    ln -sf "${SRC}/voluptuous.py" .
+    ln -sf "${SRC}/voluptuous.pyc" .
+popd
