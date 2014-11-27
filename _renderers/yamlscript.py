@@ -78,7 +78,7 @@ from yamlscript_utils import (RenderError,
                               DataWrapper,
                               YSOrderedDict,
                               update,
-                              get_pillar_data,
+                              ###get_pillar_data,
                               debug
                               )
 
@@ -123,13 +123,13 @@ def find_state(data, state_id, state_name, replace=None):
 
     # XXX Template
     # Don't recurse if state_name is None
-    if state_name is None:
-        if state_id in data.keys():
-            # XXX: Check if this works or is needed
-            if replace:
-                data[state_id] = replace[state_id]
-            return data
-        return None
+    ###if state_name is None:
+    ###    if state_id in data.keys():
+    ###        # XXX: Check if this works or is needed
+    ###        if replace:
+    ###            data[state_id] = replace[state_id]
+    ###        return data
+    ###    return None
 
     # If state is in root node, return it
     if (state_id in data.keys()
@@ -205,11 +205,13 @@ class Data(object):
 
         # Don't clobber
         # XXX: Template
-        if state_name is not None:
-            self._states.setdefault(state_id, {}).setdefault(state_name, {})
-            self._states[state_id][state_name] = data
-        else:
-            self._states[state_id] = data
+        self._states.setdefault(state_id, {}).setdefault(state_name, {})
+        self._states[state_id][state_name] = data
+        ###if state_name is not None:
+        ###    self._states.setdefault(state_id, {}).setdefault(state_name, {})
+        ###    self._states[state_id][state_name] = data
+        ###else:
+        ###    self._states[state_id] = data
 
         # Add state to _locals
         self._locals[state_id] = DataWrapper(self._states[state_id])
@@ -266,10 +268,11 @@ class Data(object):
         if data is None:
             return None
 
-        if state_name is None:
-            data = data[state_id]
-        else:
-            data = data[state_id][state_name]
+        ###if state_name is None:
+        ###    data = data[state_id]
+        ###else:
+        ###    data = data[state_id][state_name]
+        data = data[state_id][state_name]
 
         # Only merge pillar_data if state_id does not already exist in
         # self._states so we don't clobber something thats been updated
@@ -278,10 +281,10 @@ class Data(object):
             try:
                 pillar_data = data.get('__pillar_data__', {})
             except AttributeError: pass
-            #except AttributeError:
-            #    # XXX: Template
-            #    # __pillar_data__ was not set on object so attempt lookup
-            #    pillar_data = yamlscript_utils.get_pillar_data(data, __pillar__, state_id, state_name)
+            ###except AttributeError:
+            ###    # XXX: Template
+            ###    # __pillar_data__ was not set on object so attempt lookup
+            ###   pillar_data = yamlscript_utils.get_pillar_data(data, __pillar__, state_id, state_name)
 
         # Allow other_data to honour aliases
         if other_data:
@@ -478,10 +481,10 @@ class Render(object):
         index_if = None
         for key_node, key_value in data.items():
             # XXX: Template
-            if not isinstance(key_value, dict):
-                # Create the real final state XXX: Not really; its a template most likely
-                self.add(data, key_node, None)
-                continue
+            ###if not isinstance(key_value, dict):
+            ###    # Create the real final state XXX: Not really; its a template most likely
+            ###   self.add(data, key_node, None)
+            ###    continue
 
             for name in key_value.keys():
                 if hasattr(key_value, '__index__'):
@@ -560,6 +563,7 @@ class Render(object):
                     # Create the real final state
                     self.add(data, key_node, name)
 
+    # XXX: Template
     def process_sls_imports(self, code):
         '''
         Process our sls imports
@@ -651,6 +655,7 @@ class Render(object):
         template code
         '''
 
+        # XXX: Template
         # Process any sls imports first
         code = self.process_sls_imports(code)
 
@@ -806,10 +811,11 @@ class Render(object):
         '''
         # Keep the original state intact in case it needs to be re-used
         # XXX: Template
-        if state_name is None:
-            scalar = copy.deepcopy(data[state_id])
-        else:
-            scalar = copy.deepcopy(data[state_id][state_name])
+        scalar = copy.deepcopy(data[state_id][state_name])
+        ###if state_name is None:
+        ###    scalar = copy.deepcopy(data[state_id])
+        ###else:
+        ###    scalar = copy.deepcopy(data[state_id][state_name])
 
         # Lets see if any values need to be eval'd
         try:
@@ -817,14 +823,16 @@ class Render(object):
 
             # Only states can change their id
             if self.sls_type == 'state':
-                state_id = state.get('__id__', state_id)
+                state_id = scalar.get('__id__', state_id)
 
             # XXX: Template
-            if state_name is None:
-                data[state_id] = scalar
-            else:
-                data.setdefault(state_id, {}).setdefault(state_name, {})
-                data[state_id][state_name] = scalar
+            data.setdefault(state_id, {}).setdefault(state_name, {})
+            data[state_id][state_name] = scalar
+            ###if state_name is None:
+            ###    data[state_id] = scalar
+            ###else:
+            ###    data.setdefault(state_id, {}).setdefault(state_name, {})
+            ###    data[state_id][state_name] = scalar
             self.data.add(data, state_id, state_name)
 
             # State handling
@@ -838,11 +846,13 @@ class Render(object):
                 # We can overwite state_id everytime since
                 # self.data._states[state_id] will always have the most upto
                 # data values
-                __pillar__[state_id] = self.data._states[state_id].get('pillar', {})
+                self._globals['__pillar__'][state_id] = self.data._states[state_id].get('pillar', {})
+                # XXX: Pillar
+                self.salt_data[state_id] = self.data._states[state_id].get('pillar', {})
 
             # XXX: Template handling
             elif self.sls_type == 'template':
-                #self.salt_data[state_id] = self.data._states[state_id] # XXX
+                ###self.salt_data[state_id] = self.data._states[state_id] # XXX
                 self.salt_data[state_id] = self.data._states[state_id].get('template', {})
 
         except KeyError as error:
@@ -942,7 +952,9 @@ def render(template, saltenv='base', sls='', **kwargs):
         try:
             _globals = {
                 # salt, pillar & grains all provide shortcuts or object interfaces
-                'pillar': __salt__['pillar.get'],
+                # XXX: Pillar
+                #'pillar': __salt__['pillar.get'],
+                'pillar': __pillar__.get,
                 'grains': __salt__['grains.get'],
                 'mine': __salt__['mine.get'],
                 'config': __salt__['config.get'],
@@ -963,11 +975,11 @@ def render(template, saltenv='base', sls='', **kwargs):
     _globals.pop('salt', None)
 
     # Render the script data that was de-serialized into salt_data
-    Render(script_data, sls_type, _globals=_globals)
+    renderer = Render(script_data, sls_type, _globals=_globals)
 
     # If its a pillar, return it now
     if sls_type == 'pillar':
-        return __pillar__
+        return render.salt_data
 
     salt_data = Registry.salt_data()
 
