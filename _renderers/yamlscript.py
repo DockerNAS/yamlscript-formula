@@ -69,8 +69,12 @@ Cavaets:
 
 
 import sys
+import re
+import StringIO
 import copy
 
+import salt.loader
+import salt.fileclient
 from salt.utils.pyobjects import Registry
 
 import yamlscript_utils
@@ -120,16 +124,6 @@ def find_state(data, state_id, state_name, replace=None):
 
     if not isinstance(data, dict):
         return None
-
-    # XXX Template
-    # Don't recurse if state_name is None
-    ###if state_name is None:
-    ###    if state_id in data.keys():
-    ###        # XXX: Check if this works or is needed
-    ###        if replace:
-    ###            data[state_id] = replace[state_id]
-    ###        return data
-    ###    return None
 
     # If state is in root node, return it
     if (state_id in data.keys()
@@ -204,14 +198,8 @@ class Data(object):
             return None
 
         # Don't clobber
-        # XXX: Template
         self._states.setdefault(state_id, {}).setdefault(state_name, {})
         self._states[state_id][state_name] = data
-        ###if state_name is not None:
-        ###    self._states.setdefault(state_id, {}).setdefault(state_name, {})
-        ###    self._states[state_id][state_name] = data
-        ###else:
-        ###    self._states[state_id] = data
 
         # Add state to _locals
         self._locals[state_id] = DataWrapper(self._states[state_id])
@@ -268,10 +256,6 @@ class Data(object):
         if data is None:
             return None
 
-        ###if state_name is None:
-        ###    data = data[state_id]
-        ###else:
-        ###    data = data[state_id][state_name]
         data = data[state_id][state_name]
 
         # Only merge pillar_data if state_id does not already exist in
@@ -281,10 +265,6 @@ class Data(object):
             try:
                 pillar_data = data.get('__pillar_data__', {})
             except AttributeError: pass
-            ###except AttributeError:
-            ###    # XXX: Template
-            ###    # __pillar_data__ was not set on object so attempt lookup
-            ###   pillar_data = yamlscript_utils.get_pillar_data(data, __pillar__, state_id, state_name)
 
         # Allow other_data to honour aliases
         if other_data:
@@ -440,7 +420,7 @@ class Render(object):
         '''
         self.sls_type = sls_type
 
-        # XXX: Template - May not be needed; may be able to pickup data instead
+        # Pillars and templates store their data in salt_data
         self.salt_data = YSOrderedDict()
 
         # Set gloabl namespace so we have access to pyobjects state
@@ -480,12 +460,6 @@ class Render(object):
         '''
         index_if = None
         for key_node, key_value in data.items():
-            # XXX: Template
-            ###if not isinstance(key_value, dict):
-            ###    # Create the real final state XXX: Not really; its a template most likely
-            ###   self.add(data, key_node, None)
-            ###    continue
-
             for name in key_value.keys():
                 if hasattr(key_value, '__index__'):
                     self.index = key_value.__index__.get(name, {})
@@ -563,7 +537,6 @@ class Render(object):
                     # Create the real final state
                     self.add(data, key_node, name)
 
-    # XXX: Template
     def process_sls_imports(self, code):
         '''
         Process our sls imports
@@ -573,11 +546,6 @@ class Render(object):
         disable the registry since all we're looking for here is python objects,
         not salt state data.
         '''
-        # XXX Place at top
-        import re
-        import StringIO
-        import salt.fileclient
-
         client = salt.fileclient.get_file_client(__opts__)
         template = StringIO.StringIO(code)
 
@@ -654,8 +622,6 @@ class Render(object):
         renderer will mark the actual line of code that has an error within the
         template code
         '''
-
-        # XXX: Template
         # Process any sls imports first
         code = self.process_sls_imports(code)
 
@@ -792,7 +758,7 @@ class Render(object):
         :return: A DataWrapper (other_data)
         :rtype: DataWrapper
         '''
-        self.data.update(self._locals['__data__'], other_data)  # XXX3
+        self.data.update(self._locals['__data__'], other_data)
         return DataWrapper(other_data)
 
     def add(self, data, state_id, state_name):
@@ -810,12 +776,7 @@ class Render(object):
         :rtype: salt.utils.pyobjects.State
         '''
         # Keep the original state intact in case it needs to be re-used
-        # XXX: Template
         scalar = copy.deepcopy(data[state_id][state_name])
-        ###if state_name is None:
-        ###    scalar = copy.deepcopy(data[state_id])
-        ###else:
-        ###    scalar = copy.deepcopy(data[state_id][state_name])
 
         # Lets see if any values need to be eval'd
         try:
@@ -825,34 +786,30 @@ class Render(object):
             if self.sls_type == 'state':
                 state_id = scalar.get('__id__', state_id)
 
-            # XXX: Template
             data.setdefault(state_id, {}).setdefault(state_name, {})
             data[state_id][state_name] = scalar
-            ###if state_name is None:
-            ###    data[state_id] = scalar
-            ###else:
-            ###    data.setdefault(state_id, {}).setdefault(state_name, {})
-            ###    data[state_id][state_name] = scalar
             self.data.add(data, state_id, state_name)
 
             # State handling
             if self.sls_type == 'state':
-                # Create the real final state
+                # Create the real final salt_data state
                 state_object = self.add_smart_state(data, state_id, state_name)
                 return state_object
 
             # Pillar handling
+            # TODO: Combine with template
+            # XXX: - Really should not be writing directly to __pillar__.  Its being written
+            #        to so evaluate function can pick up on any changes.
+            #      - Could make a deep copy of original to use
             elif self.sls_type == 'pillar':
                 # We can overwite state_id everytime since
                 # self.data._states[state_id] will always have the most upto
-                # data values
+                # date values
                 self._globals['__pillar__'][state_id] = self.data._states[state_id].get('pillar', {})
-                # XXX: Pillar
                 self.salt_data[state_id] = self.data._states[state_id].get('pillar', {})
 
-            # XXX: Template handling
+            # Template handling
             elif self.sls_type == 'template':
-                ###self.salt_data[state_id] = self.data._states[state_id] # XXX
                 self.salt_data[state_id] = self.data._states[state_id].get('template', {})
 
         except KeyError as error:
@@ -917,16 +874,25 @@ def render(template, saltenv='base', sls='', **kwargs):
     yamlscript_utils.Cache.set(sls, sls)
 
     # Set some global builtins in yamlscript_utils
-    yamlscript_utils.__opts__ = globals().get('__opts__', {})
-    yamlscript_utils.__states__ = globals().get('__states__', {})
-    yamlscript_utils.__pillar__ = globals().get('__pillar__', {})
+    def getvar(var):
+        return kwargs.get(var, globals().get(var, {}))
 
-    # Detect if we are running a pillar or state
-    if globals().get('__states__', None) is None:
-        sls_type = 'pillar'
-    else:
-        sls_type = 'state'
-    kwargs['sls_type'] = sls_type
+    salt = getvar('__salt__')
+    states = getvar('__states__')
+    pillar = getvar('__pillar__')
+    grains = getvar('__grains__')
+    opts = getvar('__opts__')
+
+    yamlscript_utils.__opts__ = opts
+    yamlscript_utils.__states__ = states
+    yamlscript_utils.__pillar__ = pillar
+
+    # Detect if we are running a template, pillar or state
+    if 'sls_type' not in kwargs.keys():
+        if states:
+            kwargs['sls_type'] = 'state'
+        else:
+            kwargs['sls_type'] = 'pillar'
 
     # Convert yaml to ordered dictionary
     deserialize = yamlscript_utils.Deserialize(
@@ -942,7 +908,7 @@ def render(template, saltenv='base', sls='', **kwargs):
     yamlscript_utils.Cache.set(sls, deserialize)
 
     # Set _globals; used for evaluation of code
-    if sls_type == 'state':
+    if kwargs['sls_type'] == 'state':
         # Call pyobjects to build globals and provide functions to create states
         pyobjects = kwargs['renderers']['pyobjects']
         _globals = pyobjects(template, saltenv, sls, salt_data=False, **kwargs)
@@ -951,19 +917,18 @@ def render(template, saltenv='base', sls='', **kwargs):
         # format of all of the salt objects
         try:
             _globals = {
-                # salt, pillar & grains all provide shortcuts or object interfaces
-                # XXX: Pillar
-                #'pillar': __salt__['pillar.get'],
-                'pillar': __pillar__.get,
-                'grains': __salt__['grains.get'],
-                'mine': __salt__['mine.get'],
-                'config': __salt__['config.get'],
-
                 # the "dunder" formats are still available for direct use
-                '__salt__': __salt__,
-                '__pillar__': __pillar__,
-                '__grains__': __grains__
+                '__salt__': salt,
+                '__pillar__': pillar,
+                '__grains__': grains,
+
+                'pillar': pillar.get,
             }
+            if salt:
+                # salt, pillar & grains all provide shortcuts or object interfaces
+                _globals['grains'] = salt['grains.get']
+                _globals['mine'] = salt['mine.get']
+                _globals['config'] = salt['config.get']
         except NameError:
             raise
 
@@ -975,11 +940,11 @@ def render(template, saltenv='base', sls='', **kwargs):
     _globals.pop('salt', None)
 
     # Render the script data that was de-serialized into salt_data
-    renderer = Render(script_data, sls_type, _globals=_globals)
+    rendered = Render(script_data, kwargs['sls_type'], _globals=_globals)
 
-    # If its a pillar, return it now
-    if sls_type == 'pillar':
-        return render.salt_data
+    # If its a pillar or template, return it now
+    if kwargs['sls_type'] in ['pillar', 'template']:
+        return rendered.salt_data
 
     salt_data = Registry.salt_data()
 
@@ -1002,113 +967,31 @@ def render_yamlscript_tmpl(tmplstr, context, tmplpath=None):
     Yamlscript is a mix of python and yaml using yamls structured human readable
     format.
     '''
-    # XXX
-    sls = context['source']
-
-    # Keep track of stack during include statements
-    yamlscript_utils.Cache(__context__)
-    yamlscript_utils.Cache.set(sls, sls)
-
-    # Set some global builtins in yamlscript_utils
-    ###yamlscript_utils.__opts__ = globals().get('__opts__', {})
-    ###yamlscript_utils.__states__ = globals().get('__states__', {})
-    ###yamlscript_utils.__pillar__ = globals().get('__pillar__', {})
-    # XXX: Intergration notes; most likely can use above
-    yamlscript_utils.__opts__ = context['opts']
-    yamlscript_utils.__states__ = {}  # XXX: __states__ exist, bit not context['states'] and we dont want __states__
-    yamlscript_utils.__pillar__ = context['pillar']
-
-    # Detect if we are running a pillar or state
-    ###if globals().get('__states__', None) is None:
-    ###    sls_type = 'pillar'
-    ###else:
-    ###    sls_type = 'state'
-    # XXX: Intergration notes; will pass as kwargs to render; so check if
-    #      kwarg exists first; then move on to above test
     kwargs = {}
     sls_type = 'template'
-    # XXX: Original below
     kwargs['sls_type'] = sls_type
+    kwargs['__opts__'] = context['opts']
+    kwargs['__pillar__'] = context['pillar']
 
-    # XXX
-    import StringIO
-    template = StringIO.StringIO(tmplstr)
-    saltenv = context['saltenv']
-    sls = context['source']
+    # Render the templae
+    salt_data = render(StringIO.StringIO(tmplstr),
+                       saltenv=context['saltenv'],
+                       sls=context['source'],
+                       **kwargs
+                       )
 
-    # Convert yaml to ordered dictionary
-    deserialize = yamlscript_utils.Deserialize(
-        template,
-        saltenv=saltenv,
-        sls=sls,
-        **kwargs
-    )
-    script_data = deserialize.generate(
-        deserialize.state_file_content,
-        yamlscript_utils.YSOrderedDict()
-    )
-    yamlscript_utils.Cache.set(sls, deserialize)
+    outputters = salt.loader.outputters(context['opts'])
+    out = outputters['yaml']
 
-    # Set _globals; used for evaluation of code
-    if sls_type == 'state':
-        # Call pyobjects to build globals and provide functions to create states
-        pyobjects = kwargs['renderers']['pyobjects']
-        _globals = pyobjects(template, saltenv, sls, salt_data=False, **kwargs)
-    else:
-        # add some convenience methods to the global scope as well as the "dunder"
-        # format of all of the salt objects
-        try:
-            _globals = {
-                # salt, pillar & grains all provide shortcuts or object interfaces
-                'pillar': __salt__['pillar.get'],
-                'grains': __salt__['grains.get'],
-                'mine': __salt__['mine.get'],
-                'config': __salt__['config.get'],
+    # Convert from YSOrderedDict to a salt OrderDict
+    # Then format as YAML
+    salt_data = out(convert(salt_data))
 
-                # the "dunder" formats are still available for direct use
-                '__salt__': __salt__,
-                '__pillar__': __pillar__,
-                '__grains__': __grains__
-            }
-        except NameError:
-            raise
-
-    # Additional globals
-    _globals['__context__'] = dict(state_list=deserialize.state_list)
-    _globals['saltenv'] = saltenv
-
-    # Can't use pyobject global 'salt' since we need to import salt classes
-    _globals.pop('salt', None)
-
-    # Render the script data that was de-serialized into salt_data
-    r = Render(script_data, sls_type, _globals=_globals)
-    ###Render(script_data, sls_type, _globals=_globals)
-
-    # If its a pillar, return it now
-    if sls_type == 'pillar':
-        return __pillar__
-    elif sls_type == 'template':
-        import salt.loader
-        outputters = salt.loader.outputters(__opts__)
-        out = outputters['yaml']
-
-        salt_data = out(convert(r.salt_data))
-        salt_data = salt_data.replace('- ', '  - ')
-        return salt_data
-
-    salt_data = Registry.salt_data()
-
-    # Run tests if state file provided a test file location.  Tests will
-    # compare the salt_data to an expected result retreived from test file
-    if len(yamlscript_utils.Cache.all()) == 1:
-        if deserialize.test_data:
-            yamlscript_utils.test(salt_data, deserialize.test_data, sls=sls)
-        # Clean up cache
-        yamlscript_utils.Cache.pop(sls)
+    # Indent by 2 spaces
+    salt_data = salt_data.replace('- ', '  - ')
 
     return salt_data
 
-# XXX
 '''
 TODO:
 =====

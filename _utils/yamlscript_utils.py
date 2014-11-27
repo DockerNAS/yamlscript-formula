@@ -718,18 +718,9 @@ def is_script_node(key):
 
 _marker = object
 
-# XXX: Template
-###def get_pillar_data(data, pillars, state_id, state_name):
-###    return set_alias(data, pillars, state_id, state_name)
 
 def set_alias(data, pillars, state_id, state_name):
     '''
-    # XXX: Template
-    #If a pillar alias exists, the aliased value will be returned to allow
-    #access to pillar data without having to use the state file (sls)
-    #structure, otherwise the original pillar key will be returned if it
-    #exists.
-
     If a pillar exists, it will set as __pillar_data__ and returned.
     Aliases can be used to assist locatinf the pillar
 
@@ -749,9 +740,6 @@ def set_alias(data, pillars, state_id, state_name):
 
     alias = data.get('__alias__', _marker)
     if alias == _marker:
-        # XXX: Template
-        # XXX: This can not be set or states break; dunno if we need it anymore anyway
-        ###pillar = '{0}.{1}'.format(pillar, state_name)
         if state_name:
             pillar = '{0}.{1}'.format(pillar, state_name)
 
@@ -759,20 +747,12 @@ def set_alias(data, pillars, state_id, state_name):
 
         # alias not found; automatically see if we can find one
         if alias == _marker:
-            # XXX: Template (added dict test)
-            # pillar is not nested; no alias found
-            ###if not isinstance(pillar, dict):
-            ###    alias = None
-
             # pillar is not nested; use found pillar
             # pillar_id.state_name key
             if pillar_data.get(pillar, _marker) != _marker:
-            ###elif pillar_data.get(pillar, _marker) != _marker:
                 alias = pillar
 
-            # XXX: Template - added state_name test
             # state_name key
-            ###elif pillar_data.get(state_name, _marker) != _marker:
             elif state_name and pillar_data.get(state_name, _marker) != _marker:
                 alias = state_name
 
@@ -784,14 +764,6 @@ def set_alias(data, pillars, state_id, state_name):
         data['__alias__'] = alias
 
     # If the pillar_key is set to null/None we want the root
-    ###if alias is False:
-    ###    data['__pillar_data__'] = {}
-    ###elif alias is None:
-    ###    data['__pillar_data__'] = pillar_data
-    ###else:
-    ###    data['__pillar_data__'] = pillar_data.get(alias, {})
-
-    # XXX: Template
     if alias is False:
         pillar_data = {}
     elif alias is not None:
@@ -799,7 +771,6 @@ def set_alias(data, pillars, state_id, state_name):
     data['__pillar_data__'] = pillar_data
 
     # XXX: Template
-    ###return data
     return pillar_data
 
 
@@ -823,8 +794,6 @@ def set_pillar_data(data, pillars, state_id, state_name):
 
     pillar = data.get('__pillar__', None)
     if pillar is False:
-        # XXX: Template
-        ###return data
         return {}
     elif pillar:
         return set_alias(data, pillars, state_id, state_name)
@@ -838,21 +807,14 @@ def set_pillar_data(data, pillars, state_id, state_name):
         pillar = False
     elif not auto and enabled:
         pillar = enabled
-    # XXX: Template - This looks like it should be returnig True
-    #      Look into the 'all' setting as it not checked here
-    #      Also since we enabled auto, deos that now mean included tempaltes will get auto added?
-    #      - that won't matter for yamlscript included templates since they can set mode, but
-    #        will matter for sls templates; maybe set auto to False for sls templates!
+    # XXX: Added for Template
     elif auto:
         pillar = state_id
-
     else:
         pillar = False
 
     data['__pillar__'] = pillar
     if pillar is False:
-        # XXX: Template
-        ###return data
         return {}
 
     return set_alias(data, pillars, state_id, state_name)
@@ -1043,23 +1005,28 @@ class Deserialize(object):
                       }
                      }
                 )
-                # defaults
+
+                # $defaults
                 if script_node == 'defaults':
                     self.defaults = value_node
-                # python, include, extend
+
+                # $python
                 elif script_node in ['python']:
                     command['__yamlscript__']['statement'] = value_node
                     script_data[key_node] = command
                     script_data.__index__['$' + key_node] = self.index
-                # pillar
+
+                # $pillar
                 elif script_node == 'pillars':
                     self.pillars = Schema.pillars(value_node, self.index)
-                # test_file
+
+                # $test_file
                 elif script_node == 'test_file':
                     for data in self.deserialize_salt_files(value_node):
                         data = data.get('local', data)
                         self.test_data.update(data)
-                # with
+
+                # $with
                 elif script_node == 'with' and isinstance(value_node.values()[0], list):
                     # 'with' node withing YAML syntax only
                     id_ = key_node.split(' ', 1)[1]
@@ -1075,50 +1042,41 @@ class Deserialize(object):
                     content = self.generate(value_node, YSOrderedDict())
                     script_data[key_node]['__yamlscript__']['content'] = content
                     script_data.__index__['$' + key_node] = self.index
-                # import
+
+                # $import
                 elif script_node == 'import':
                     if isinstance(value_node, str):
                         value_node = [value_node]
                     for sls in value_node:
                         source = self.get_state_source(sls)
-                        # XXX: Template (top part is original code)
                         data = self.generate(
                                 self.deserialize_yamlscript_file(StringIO.StringIO(self.get_salt_file(source))),
                                 YSOrderedDict()
                             )
-                        #deserialize = Deserialize(StringIO.StringIO(self.get_salt_file(source)),
-                        #                          saltenv=self.saltenv,
-                        #                          sls=sls,
-                        #                          **self.kwargs
-                        #                          )
-                        #deserialize.pillars['auto'] = False
-                        #deserialize.defaults = False
-                        #data = deserialize.generate(deserialize.state_file_content, YSOrderedDict())
 
                         # Don't allow duplicate keys or values could be over-written
                         for key_data, value_data in data.items():
                             if '$' + key_data in state_file_content.keys():
                                 key_data += source
                             script_data[key_data] = value_data
+
+                # $include
                 elif script_node == 'include':
                     if isinstance(value_node, str):
                         value_node = [value_node]
                     for sls in value_node:
                         dest = self.get_state_dest(sls)
                         try:
-                            # XXX: Template; Added kwargs.pop('renderers') since compile_template now seems to need it
-                                                                   #default=__opts__['renderer'],
                             kwargs = self.kwargs
                             state = salt.template.compile_template(dest,
                                                                    renderers=kwargs.pop('renderers'),
                                                                    default=__opts__['renderer'],
                                                                    saltenv=self.saltenv,
                                                                    sls=sls,
-                                                                   **kwargs)
+                                                                   **kwargs
+                                                                   )
                         except SaltRenderError:
                             raise
-                        # except Exception:
-                        #    raise
 
                         # If a yamlscript sls file was included, it cached the
                         # Deserialize instance, so we use it
@@ -1130,55 +1088,52 @@ class Deserialize(object):
                             deserialize = Deserialize(state,
                                                       saltenv=self.saltenv,
                                                       sls=sls,
-                                                      **self.kwargs)
-                            # XXX: Template - auto = False
-                            # deserialize.pillars['auto'] = False
+                                                      **self.kwargs
+                                                      )
                             deserialize.generate(deserialize.state_file_content, YSOrderedDict())
                         script_data.update(deserialize.script_data)
                         self.state_list.extend(deserialize.state_list)
+
+                # $for, $if, $elif, $else, $with
                 elif script_node in ['for', 'if', 'elif', 'else', 'with']:
                     script_data[key_node] = self.generate(value_node, command)
                     script_data.__index__['$' + key_node] = self.index
+
+                # $comment
                 elif script_node in ['comment']:
                     pass
+
                 else:
                     raise RenderError('Yamlscript token not implemented', value_node, index=self.index)
                 continue
 
-            # XXX: Template seperated out to own test
-            # Convert sls include to a yamlscript $include and parse it
+            # sls '- include' - convert to a yamlscript $include and parse it
             elif key_node == 'include':
                 state_file_content.rename(key_node, '${0}'.format(key_node))
                 key_node = '${0}'.format(key_node)
                 self.generate(YSOrderedDict(state_file_content, [key_node]), script_data)
                 continue
 
-            # XXX: Deal with pillars
+            # Deal with pillars
             if self.sls_type == 'pillar':
                 # TODO:  No positional info available!
                 script_data.setdefault(key_node, YSOrderedDict(), state_file_content)
                 script_data[key_node].update(YSOrderedDict(pillar=value_node))
                 continue
 
-            # XXX: Deal with templates
+            # Deal with templates
             elif self.sls_type == 'template':
-                #set_pillar_data(state_file_content, self.pillars, key_node, None)
-
                 script_data.setdefault(key_node, YSOrderedDict(), state_file_content)
-                #script_data[key_node] = value_node  # XXX: implement like pillars to prevent state_name is None in _utils?
                 script_data[key_node].update(YSOrderedDict(template=value_node))
 
-                #set_pillar_data(script_data[key_node], self.pillars, key_node, None)
+                # Retreive any related pillar data for template
                 pd = set_pillar_data(script_data[key_node], self.pillars, key_node, 'template')
 
-                # Hanldle pillar data here since contents may not be dictionary
-                #pd = script_data[key_node].get('__pillar_data__', None)
+                # Replace data with pillar data
                 if pd:
                     script_data[key_node]['template'] = pd
 
-
-                #self.state_list.append((key_node, None))  # XXX: Is this needed; or should we remove
-                self.state_list.append((key_node, 'template'))  # XXX: Is this needed; or should we remove
+                self.state_list.append((key_node, 'template'))  # XXX: Is this needed
                 continue
 
             # Only deal with one item at a time
@@ -1199,13 +1154,11 @@ class Deserialize(object):
                         self.generate(YSOrderedDict(state_file_content, [key_node, nested_script_data]), script_data)
                 continue
 
-            # XXX: Allow empty state data
+            # Allow empty states like cmd.run
             elif isinstance(value_node, str):
-                # Allow empty states like cmd.run
                 value_node = YSOrderedDict({value_node: []})
                 state_file_content[key_node] = value_node
 
-            # XXX: New
             elif not isinstance(value_node, dict):
                 raise RenderError('Not implemented', index=self.index)
 
