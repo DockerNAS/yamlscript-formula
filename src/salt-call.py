@@ -10,7 +10,7 @@ from subprocess import call
 
 from salt.scripts import salt_call
 
-SYNC = True
+SYNC = False
 
 if __name__ == '__main__':
     argv = sys.argv
