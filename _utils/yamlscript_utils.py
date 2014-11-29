@@ -1126,6 +1126,10 @@ class Deserialize(object):
                 script_data.setdefault(key_node, YSOrderedDict(), state_file_content)
                 script_data[key_node].update(YSOrderedDict(template=value_node))
 
+                # Set alias to None if not already set to ensure pillar data can be found
+                if self.pillars['aliases'].get(key_node, None) is None:
+                    self.pillars['aliases'][key_node + '.template'] = None
+
                 # Retreive any related pillar data for template
                 pd = set_pillar_data(script_data[key_node], self.pillars, key_node, 'template')
 
