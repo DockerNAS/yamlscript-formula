@@ -932,6 +932,11 @@ def render(template, saltenv='base', sls='', **kwargs):
         except NameError:
             raise
 
+    # Use copy of __pillar__ and __grains__ dictionaries
+    salt_vars = ['__pillar__', '__grains__']
+    for var in salt_vars:
+        _globals[var] = copy.deepcopy(_globals[var])
+
     # Additional globals
     _globals['__context__'] = dict(state_list=deserialize.state_list)
     _globals['saltenv'] = saltenv
@@ -1063,7 +1068,7 @@ GENERAL
 VALIDATION
 ----------
 - Plug in voluptuous as an adapter to be able to validate
-  - right now state validation happens at the end; make that a plugin so other things can be 
+  - right now state validation happens at the end; make that a plugin so other things can be
     validated, so in other word we would not have to 'contine' pillars and templates, let it
     go to see if there is an adapter, and if not continue!
     - that would allow templates to be futher parsed which would allow loops, etc?
