@@ -90,7 +90,7 @@ class Schema(object):
         $pillars declaration needs to be before any other yaml or python
 
         $pillars:
-          auto: (True)|False
+          auto: True|(False)
           disabled:
             - <state_id>
             - <state_id>
@@ -173,7 +173,7 @@ class Schema(object):
             data = {}
         enabled = [str, {str: str}]
         schema = {
-            Required('auto', default=True): Any(Coerce(bool)),
+            Required('auto', default=False): Any(Coerce(bool)),
             Required('disabled', default=[]): Any([str], cls.coerce_to_list(str)),
             Required('enabled', default=[]): Any(enabled, cls.coerce_to_list(str)),
             Required('aliases', default=[]): [{str: Any(str, None)}],
@@ -915,7 +915,7 @@ class Deserialize(object):
     script_node = None
     index = None
 
-    def __init__(self, template, saltenv='base', sls='', defaults=True, **kwargs):
+    def __init__(self, template, saltenv='base', sls='', defaults=False, **kwargs):
         self.template = template
         self.saltenv = saltenv
         self.sls = sls
@@ -1153,7 +1153,8 @@ class Deserialize(object):
                                 }, state_file_content[key_node]
                             ), script_data
                         )
-                        break
+                        # XXX: Why break?  we not completeing other nested data
+                        ### break
                     else:
                         self.generate(YSOrderedDict(state_file_content, [key_node, nested_script_data]), script_data)
                 continue
