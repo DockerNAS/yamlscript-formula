@@ -1067,7 +1067,7 @@ class Deserialize(object):
                     for sls in value_node:
                         dest = self.get_state_dest(sls)
                         try:
-                            kwargs = self.kwargs
+                            kwargs = copy.deepcopy(self.kwargs)
                             state = salt.template.compile_template(dest,
                                                                    renderers=kwargs.pop('renderers'),
                                                                    default=__opts__['renderer'],
