@@ -22,9 +22,8 @@
 #     Debug -> Debug Environment -> Environment --> --local state.highstate -l debug
 #
 # STEP 4:
-# -------
-# - Set breakpoint in src directory
-#   not in:  /var/cache/salt/minion/extmods/...
+# - Set breakpoint in: /var/cache/salt/minion/extmods/...
+# # Set breakpoint in: src directory
 #
 ################################################################################
 
@@ -38,14 +37,17 @@ SRC="$(readlink -m .)"
 FORMULA_DIR="$(readlink -m ..)"
 NOW=$(date +"%Y-%m-%d:%H-%M-%S")
 
+
 #
 # Need to update /srv/salt/salt/files/master.d/gitfs.conf to remove any
-# references to gitfs yamlscsript and add a rootsfs link directly to the 
+# references to gitfs yamlscsript and add a rootsfs link directly to the
 # development path
 #
 #mv "${GITFS}" "${GITFS}.${NOW}"
 cp ./gitfs.conf "${GITFS}"
 sed -i "s|SRC_DIR|${FORMULA_DIR}|" "${GITFS}"
+cp -f "${GITFS}" /etc/salt/master.d/gitfs.conf
+cp -f "${GITFS}" /etc/salt/minion.d/gitfs.conf
 
 #
 # Make sure links in src directory point to actual source
@@ -56,40 +58,57 @@ ln -sf ../_utils/voluptuous.py .
 ln -sf ../_renderers/yamlscript.py .
 
 #
-# Then need to remove minion cache 
+# Then need to remove minion cache
 #
-rm -rf "${CACHE_DIR}"/gitfs
-rm -rf "${CACHE_DIR}"/roots
-rm -rf "${CACHE_DIR}"/files
-rm -rf "${CACHE_DIR}"/extmods
-rm -rf "${CACHE_DIR}"/files
-rm -rf "${CACHE_DIR}"/file_lists
+#rm -rf "${CACHE_DIR}"/gitfs
+#rm -rf "${CACHE_DIR}"/roots
+#rm -rf "${CACHE_DIR}"/files
+#rm -rf "${CACHE_DIR}"/extmods
+#rm -rf "${CACHE_DIR}"/files
+#rm -rf "${CACHE_DIR}"/file_lists
+
+# and local .pyc files
+rm -f *.pyc
+
+systemctl stop salt-minion
+salt '*' saltutil.clear_cache
+systemctl start salt-minion
 
 #
 # Then run highstate to copy over all the new configurations
 #
-salt '*' state.highstate
+salt-call --local saltutil.sync_all
+salt-call --local state.highstate
+#salt '*' saltutil.sync_all
+#salt '*' state.highstate
 
 #
 # Setup softlinks
 #
-rm -f *.pyc
 #touch yamlscript.pyc
 #touch yamlscript_utils.pyc
 #touch voluptuous.pyc
 
+#rm -f *.pyc
+#ln -s "${EXTMODS}/renderers/yamlscript.pyc" .
+#ln -s "${EXTMODS}/utils/yamlscript_utils.pyc" .
+#ln -s "${EXTMODS}/utils/voluptuous.pyc" .
+
 pushd "${EXTMODS}/renderers"
-    rm -f yamscript.py?
-    ln -sf "${SRC}/yamlscript.py" .
-    ln -sf "${SRC}/yamlscript.pyc" .
+    #rm -f yamscript.py
+    #ln -sf "${SRC}/yamlscript.py" .
+    #mv ./yamlscript.pyc "${SRC}/yamlscript.pyc"
+    #ln -sf "${SRC}/yamlscript.pyc" .
 popd
 
 pushd "${EXTMODS}/utils"
-    rm -f yamscript.py?
-    ln -sf "${SRC}/yamlscript_utils.py" .
-    ln -sf "${SRC}/yamlscript_utils.pyc" .
+    #rm -f yamscript_utils.py
+    #ln -sf "${SRC}/yamlscript_utils.py" .
+    #mv ./yamlscript_utils.pyc "${SRC}/yamlscript_utils.pyc"
+    #ln -sf "${SRC}/yamlscript_utils.pyc" .
 
-    rm -f yamscript.py?
-    ln -sf "${SRC}/voluptuous.py" .
-    ln -sf "${SRC}/voluptuous.pyc" .
+    #rm -f voluptuouvoluptuous.py
+    #ln -sf "${SRC}/voluptuous.py" .
+    #mv ./voluptuous.pyc "${SRC}/voluptuous.pyc"
+    #ln -sf "${SRC}/voluptuous.pyc" .
 popd
