@@ -39,6 +39,7 @@ import salt.utils.odict
 import salt.utils
 import salt.template
 from salt.exceptions import SaltRenderError
+from salt.utils.yamlloader import SaltYamlSafeLoader
 
 import voluptuous
 from voluptuous import (MultipleInvalid,
@@ -439,7 +440,7 @@ class YSOrderedDict(salt.utils.odict.OrderedDict):
         return YSOrderedDict(dict_)
 
 
-class YamlScriptSafeLoader(salt.utils.yamlloader.SaltYamlSafeLoader, object):
+class YamlScriptSafeLoader(SaltYamlSafeLoader, object):
     '''
     create a custom YAML loader that uses the custom constructor.
 
