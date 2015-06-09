@@ -827,7 +827,8 @@ def compile_state_data(
         state_name=None,
         set_defaults=False,
         attach_defaults=False,
-        pillars=None):
+        pillars=None,
+        saltenv=None):
     '''
     Takes salt structured data like {id}{state[.function]}[{function value list}]
     and converts it to {id}{state}{key:values}
@@ -854,6 +855,7 @@ def compile_state_data(
         '__pillar__',
         '__alias__',
         '__pillar_data__'
+        '__env__'
     ]
 
     # be sure all the data is YSOrderedDict type
@@ -887,6 +889,9 @@ def compile_state_data(
 
             state_values = high[state_id][key]
             state_func_name = '{0}.{1}'.format(key, state_values['__fun__'])
+
+            if saltenv:
+                state_values['__env__'] = saltenv
 
             if set_defaults or attach_defaults:
                 function = __states__[state_func_name]
@@ -941,23 +946,30 @@ class Deserialize(object):
             YamlScriptSafeLoader.sls = self.sls
             self.state_file_content = self.deserialize_yamlscript_file(template)
 
-    def get_state_dest(self, sls):
-        state_data = self.client.get_state(sls, self.saltenv)
+    def get_saltenv(self, sls, saltenv):
+        try:
+            sls, saltenv = sls.split('@')
+        except ValueError:
+            pass
+        return sls, saltenv
+
+    def get_state_dest(self, sls, saltenv=None):
+        state_data = self.client.get_state(sls, saltenv or self.saltenv)
         dest = state_data.get('dest', False)
         if not dest:
             raise RenderError('No such file or directory', sls, index=self.index)
         return dest
 
-    def get_state_source(self, sls):
-        state_data = self.client.get_state(sls, self.saltenv)
+    def get_state_source(self, sls, saltenv=None):
+        state_data = self.client.get_state(sls, saltenv or self.saltenv)
         source = state_data.get('source', False)
         if not source:
             raise RenderError('No such file or directory', sls, index=self.index)
         return source
 
-    def get_salt_file(self, salt_file):
+    def get_salt_file(self, salt_file, saltenv=None):
         try:
-            state_file = self.client.cache_file(salt_file, self.saltenv)
+            state_file = self.client.cache_file(salt_file, saltenv or self.saltenv)
             with open(state_file) as file_:
                 return file_.read()
         except IOError, error:
@@ -980,7 +992,7 @@ class Deserialize(object):
             state_file_content.append(data)
         return state_file_content
 
-    def generate(self, state_file_content, script_data):
+    def generate(self, state_file_content, script_data, saltenv=''):
         '''
         '''
         for key_node, value_node in state_file_content.items():
@@ -1066,13 +1078,16 @@ class Deserialize(object):
                     if isinstance(value_node, str):
                         value_node = [value_node]
                     for sls in value_node:
-                        dest = self.get_state_dest(sls)
+                        # Allow include from another env ($include vim@base)
+                        sls, saltenv = self.get_saltenv(sls, self.saltenv)
+                        dest = self.get_state_dest(sls, saltenv)
+                        kwargs = copy.deepcopy(self.kwargs)
+                        kwargs['env'] = saltenv
                         try:
-                            kwargs = copy.deepcopy(self.kwargs)
                             state = salt.template.compile_template(dest,
                                                                    renderers=kwargs.pop('renderers'),
                                                                    default=__opts__['renderer'],
-                                                                   saltenv=self.saltenv,
+                                                                   saltenv=saltenv,
                                                                    sls=sls,
                                                                    **kwargs
                                                                    )
@@ -1087,11 +1102,11 @@ class Deserialize(object):
                             Cache.pop(sls)
                         else:
                             deserialize = Deserialize(state,
-                                                      saltenv=self.saltenv,
+                                                      saltenv=saltenv,
                                                       sls=sls,
-                                                      **self.kwargs
+                                                      **kwargs
                                                       )
-                            deserialize.generate(deserialize.state_file_content, YSOrderedDict())
+                            deserialize.generate(deserialize.state_file_content, YSOrderedDict(), saltenv=saltenv)
                         script_data.update(deserialize.script_data)
                         self.state_list.extend(deserialize.state_list)
 
@@ -1178,7 +1193,8 @@ class Deserialize(object):
                 state_name=state_name,
                 set_defaults=self.defaults,
                 attach_defaults=True,
-                pillars=self.pillars
+                pillars=self.pillars,
+                saltenv=saltenv
             )
             script_data.setdefault(key_node, YSOrderedDict(), state_file_content)
             script_data[key_node].update(YSOrderedDict(high[key_node], [state_name]))
