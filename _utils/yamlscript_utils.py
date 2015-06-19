@@ -1,23 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# YAMLSCRIPT INSTALLATION NOTES:
-# ------------------------------
-#   - This file must go in the _renderers directory:
-#     (/srv/salt/_renderer/yamlscript.py)
-#     (/srv/salt/_renderer/yamlscript_utils.py)
-#
-#   - Then need to sync renderers before it can be used:
-#     - salt-call --local saltutil.sync_renderers
-#       -- OR --
-#     - salt-call --local state.highstate
-#
-# DEBUGGING NOTES:
-# ----------------
-#   - Just soft link the 2 files from /src/salt/renderers directory so breakpoints
-#     can be set.
-#   - Also soft link the files in /var/cache/salt/minion/extmods/renderers
-#     source code location as well (salt-formula)
-
 from __future__ import absolute_import  # So yaml can be imported
 
 import re
