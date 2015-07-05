@@ -72,6 +72,7 @@ import sys
 import re
 import StringIO
 import copy
+import collections
 
 import salt.loader
 import salt.fileclient
@@ -1133,7 +1134,6 @@ VALIDATION
 '''
 
 # XXX: Template
-import collections
 import salt.utils.odict
 def convert(dict_):
     'converts any dictionary and nested dictionaries to a dict'
