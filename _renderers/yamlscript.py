@@ -72,6 +72,7 @@ import sys
 import re
 import StringIO
 import copy
+import collections
 
 import salt.loader
 import salt.fileclient
