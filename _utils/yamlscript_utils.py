@@ -16,10 +16,15 @@ import StringIO
 import salt.fileclient
 import salt.client
 import salt.renderers.pyobjects
-import salt.utils.serializers.yaml
 import salt.utils.odict
 import salt.utils
 import salt.template
+
+try:
+    import salt.utils.serializers.yaml as yaml_serializer
+except ImportError:
+    import salt.serializers.yaml as yaml_serializer
+
 from salt.exceptions import SaltRenderError
 from salt.utils.yamlloader import SaltYamlSafeLoader
 
@@ -967,10 +972,10 @@ class Deserialize(object):
     @staticmethod
     def deserialize_yamlscript_file(template):
         template.seek(0)
-        return salt.utils.serializers.yaml.deserialize(template.read(), **{'Loader': YamlScriptSafeLoader})
+        return yaml_serializer.deserialize(template.read(), **{'Loader': YamlScriptSafeLoader})
 
     def deserialize_salt_file(self, template):
-        return salt.utils.serializers.yaml.deserialize(self.get_salt_file(template))
+        return yaml_serializer.deserialize(self.get_salt_file(template))
 
     def deserialize_salt_files(self, templates):
         state_file_content = []
@@ -1282,7 +1287,7 @@ def test(salt_data, test_data, sls=''):
 
     # Deserialize test state file
     if isinstance(test_data, str):
-        test_data = salt.utils.serializers.yaml.deserialize(test_data)
+        test_data = yaml_serializer.deserialize(test_data)
 
     # Compile test_data into a valid yamlscript structure and allow test_data to
     # contain the parent 'local' key as shown 'state.show_sls users' or not
